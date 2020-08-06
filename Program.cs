@@ -65,6 +65,17 @@ namespace SP_Project2_v00
                     if (by<=0) {break;}
                 } while (!hitreg);
 
+                if (hitreg) // Precise Hit Comfirmation
+                {
+                    do {
+                        t+=0.001;
+                        bx = ShootX(sx,init_spd,angle,G,t,gx);
+                        by = ShootY(sy,init_spd,angle,G,t,gy);
+                        hitreg = HitReg(ref health,ref state,bx,by,tx,ty,sx,sy,ref dist,ref precision);
+                        if (bx>tx+1 | by>ty+1) {break;}
+                    } while (!precision);
+                }
+
                 if (hitreg) {
                     // if target is hit, target's mental state is affected
                     hc++;

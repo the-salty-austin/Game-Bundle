@@ -1,296 +1,346 @@
 using System;
-using System.Linq;
+using System.Timers;
+using System.Threading;
 
-namespace SP_Project2_v00
+class MainClass
 {
-    class Program
+    static void Main(string[] args)
     {
-        enum TargetState {Aggressive,Moderate,Calm} // Target Mental State
-        static void Main(string[] args) // Sniper with windspeed
+        // Rush Hour Maniac
+        /*
+         *                  DEV LOG
+         *
+         * 8/15 0922PM: shorten game area to 12 (was 24)
+         * (problem: too long)
+         * ======
+         * 8/16 0202AM: Solve Timeout Input Issue
+         * source: https://stackoverflow.com/questions/57615/how-to-add-a-timeout-to-console-readline
+         * https://www.codeproject.com/Questions/300894/Convert-Console-Key-to-string-Need-help-very-basic
+         * ======
+         * 8/17 1228AM: Update to v0.2
+         * ======
+         * 8/17 1252AM: Update to v0.3
+         * ======
+         */
+        Launch();
+        /*
+            FUNCTIONALITY PLAN
+
+        v0.0 set up environment [ OK ]
+        (game square, score top right)
+
+        v0.1 update game screen
+        (use sleep() / clear() )
+
+        v0.2 player movement (WASD) + car crash
+
+        v0.3 Enhance user interface (information)
+        v0.3.1 Include Timer
+
+        v0.4 difficulty [not done]
+        if score>250 car=2 faster etc.
+        */
+
+    }
+    static void Launch()
+    {
+        int idx = 1; // initialize car position
+        int score = 0;
+
+        // set up game environment
+        char[,] screen = new char[12, 33];
+        char[] car = new char[33];
+        SetUp(ref screen, ref car);
+
+        // print out game info
+        Info();
+        // Game begins & save game start time
+        DateTime start_time = DateTime.Now;
+
+        while (true)
         {
-            Info();
+            int t1 = 0;
+            int t2 = 0;
+            int x1;
+            int y1;
+            int x2;
+            int y2;
+            int dir;
+            bool no_exit1;
+            bool no_exit2;
+            bool no_crash1;
+            bool no_crash2;
 
-            const double G = 9.8;
-            int hc = 0; // hit count
-            double dist=0; // bullet travel distance
-            bool hitreg; // bullet hit (<=1.0m error)
-            bool precision = false; // bullet precise hit (<=0.2m error)
+            TrafficGenerator(screen, out x1, out y1);
+            TrafficGenerator(screen, out x2, out y2);
 
-            // Generate sniper initial location (x,y)=(0,0)
-            double sx = 0.0; // sx: sniper x location
-            double sy = 0.0; // sy: sniper y location
-
-            // Generate target initial conditions (location,mental state,health)
-            Random rand = new Random();
-            double tx = rand.Next(0,501);
-            double ty = rand.Next(0,51);
-            TargetState state = TargetState.Moderate;
-            int health = 100;
-
-            double gSpd = rand.Next(-100,101); // G-Field Speed -2.5 ~ +2.5 m/s
-            gSpd /= 40;
-            int gDir = rand.Next(0,360); // G-Field Direction 0~359 deg
-
-            do {
-                double bx=0; // bullet x
-                double by=0; // bullet y
-                double gx=0; // G-Field x
-                double gy=0; // G-Field y
-                double t=0; // time
-                string dir="N/A"; // G-Field direction
-                
-                Console.WriteLine("Target now at ({0},{1})\n",tx,ty);
-
-                gx = GfX(gSpd,gDir); // calculate G-Field x
-                if (gx>=0) {dir="Forward";}
-                else if (gx<0) {dir="Backward";}
-                Console.WriteLine("Horz. G-Field Bonus: {0} m/s ({1})",Math.Round(Math.Abs(gx),3),dir);
-                
-                gy = GfY(gSpd,gDir); // calculate G-Field y
-                if (gy>=0) {dir="Downward";}
-                else if (gy<0) {dir="Upward";}
-                Console.WriteLine("Vert. G-Field Bonus: {0} m/s ({1})",Math.Round(Math.Abs(gy),3),dir);
-
-                double init_spd =150.0; // Bullet shoot out SPEED & ANGLE
-                Console.Write("Shoot Angle (deg): ");
-                double angle = double.Parse(Console.ReadLine());
-                angle = (angle*Math.PI)/180;
-
-                do {
-                    // Simulate bullet trajectory until bullet hits target or target lands.
-                    t+=0.01;
-                    bx = ShootX(sx,init_spd,angle,G,t,gx); // bx: bullet x location
-                    by = ShootY(sy,init_spd,angle,G,t,gy); // by: bullet y location
-                    hitreg = HitReg(ref health,ref state,bx,by,tx,ty,sx,sy,ref dist,ref precision);
-                    if (by<=0) {break;}
-                } while (!hitreg);
-
-                if (hitreg) // Precise Hit Comfirmation
-                {
-                    do {
-                        t+=0.001;
-                        bx = ShootX(sx,init_spd,angle,G,t,gx);
-                        by = ShootY(sy,init_spd,angle,G,t,gy);
-                        hitreg = HitReg(ref health,ref state,bx,by,tx,ty,sx,sy,ref dist,ref precision);
-                        if (bx>tx+1 | by>ty+1) {break;}
-                    } while (!precision);
-                }
-
-                if (hitreg) {
-                    // if target is hit, target's mental state is affected
-                    hc++;
-                    State(ref hc,ref state);
-                    // calculate the damage caused by bullet
-                    Damage(ref health,dist,state,precision);
-
-                    // Target is hit: generate new G-Field
-                    Console.WriteLine("Target Hit!");
-                    gSpd = rand.Next(-100,101); 
-                    gSpd /= 40;
-                    gDir = rand.Next(0,360); 
-                }
-                else if (!hitreg) {
-                    hc= (hc>1) ? hc-=2 : hc--;
-                    State(ref hc,ref state);
-
-                    // Target not hit: remain old G-Field
-                    Console.Write("No Hit... ");
-                    Console.WriteLine("Your bullet landed at ({0},{1})",(int)bx,(int)by);
-                }
-
-                Console.WriteLine("Target State: {0}\nPress Enter to continue.",state);
-                Console.Read();
-
-                if ( Move(state) )
-                {
-                    // Movement probability based on Target's state                    
-                    tx = rand.Next(0,501);
-                    ty = rand.Next(0,51);
-                    Console.WriteLine("[ warning ] Target has relocated.");
-                }
-            } while (health>0); // Quit game when target health < 0
-
-            Console.WriteLine("You have eliminated the target.\nWell done, agent.");
-        }
-
-        static void Info()
-        {
-            Console.WriteLine("\n***** Welcome *****\nSnipe him till death\n");
-            Console.WriteLine("***** Introduction *****");
-            Console.Write("\tAgent, you're now dispatched to the battlefield. ");
-            Console.Write("Your mission is to eliminate the world's most-wanted target. ");
-            Console.Write("According to intel, the target is highly dangerous and becomes irritated when being shot. ");
-            Console.WriteLine("The more irritated the target is, the more likely he is to escape and relocate.");
-            Console.Write("\tYou are equipped with an advanced sniper rifle, which causes a maximum damage of 20. ");
-            Console.WriteLine("However, the damage drops as you become farther from the target. Also, the target is highly resistant to bullet damage when he is irritated.");
-            Console.Write("\tAdditionally, there is a special \"G-Field\" which attracts your bullet and affects its trajectory. ");
-            Console.WriteLine("If your bullet is attracted \"forward\" or \"upward\", it travels farther.");
-            Console.WriteLine("\nBefore you go, here are some extra stats we know:");
-            Console.WriteLine("\n[ Target Info ]");
-            Console.WriteLine($@"{"Mental State", -14} {"Damage Resistance", -18} {"Escape Probability", -20}");
-            Console.WriteLine($@"{"Calm", -14} {"Low", -18} {"10%", -20}");
-            Console.WriteLine($@"{"Moderate", -14} {"High", -18} {"50%", -20}");
-            Console.WriteLine($@"{"Aggressive", -14} {"Very High", -18} {"70%", -20}");
-            Console.WriteLine("\n[ Rifle Info ]");
-            Console.WriteLine($@"{"Distance", -10} {"Max Damage", -10}");
-            Console.WriteLine($@"{"000m", -10} {"20", -10}");
-            Console.WriteLine($@"{"100m", -10} {"17", -10}");
-            Console.WriteLine($@"{"250m", -10} {"13", -10}");
-            Console.WriteLine($@"{"500m", -10} {"09", -10}");
-            Console.WriteLine(">>> Bullet travels at 150 m/s <<<");
-            Console.WriteLine("\nGood Luck, Agent.\n");
-        }
-        static double GfX(double gSpd,int gDir)
-        {
-            // GfX() calculates how much the bullet accelerates per second on the x axis.
-            double x_acc = gSpd*Math.Cos((double)(gDir*Math.PI/180));
-            return x_acc;
-        }
-        static double GfY(double gSpd,int gDir)
-        {
-            // GfY() calculates how much the bullet accelerates per second on the y axis.
-            double y_acc = gSpd*Math.Sin((double)(gDir*Math.PI/180));
-            return y_acc;
-        }
-        static double ShootX(double sx, double init_spd,double theta,double G,double time,double gx)
-        {
-            // ShootX() calculates distance traveled on x axis
-            double vx = init_spd*Math.Cos(theta);
-            double x_dist = sx+vx*time-(gx*time*time)/2;
-            return x_dist;
-        }
-        static double ShootY(double sy, double init_spd,double theta,double G,double time,double gy)
-        {
-            // ShootX() calculates distance traveled on y axis
-            double vy = init_spd*Math.Sin(theta);
-            double y_dist = sy+vy*time-((G+gy)*time*time)/2;
-            return y_dist;
-        }
-        static bool HitReg(ref int health,ref TargetState state,double bx, double by, double tx, double ty,double sx,double sy,ref double dist,ref bool precision)
-        {
-            // HitReg() verifies whether the bullet has hit the target
-            
-            bool flag = false; // hitreg
-            
-            if ( (bx<=tx+1.0 & bx>=tx-1.0) & (by<=ty+1.0 & by>=ty-1.0) )
+            do
             {
-                dist = Math.Sqrt(Math.Pow((sx-tx),2)+Math.Pow((sy-ty),2)); // sqrt( (tx-bx)^2+(ty-by)^2 )
-                if ( (bx<=tx+0.2 & bx>=tx-0.2) & (by<=ty+0.2 & by>=ty-0.2) )
-                {
-                  precision = true;
-                }
-                flag = true;
-            } 
+                t1++;
+                t2++;
+                TrafficMove(screen, x1, y1, ref t1, out no_exit1);
+                TrafficMove(screen, x2, y2, ref t2, out no_exit2);
+
+                //PlayerPosition(car,idx); // idx== 0(6) / 1(16) / 2(26) 
+                PlayerControl(out dir, ref idx);
+                PlayerMovement(ref car, dir, ref idx);
+                // Above needs work
+
+                Display(screen, car, score);
+                Thread.Sleep(50);
+                int tmp1 = y1 + t1;
+                int tmp2 = y2 + t2;
+                no_crash1 = CrashCheck(x1, tmp1, idx, screen, car, start_time);
+                no_crash2 = CrashCheck(x2, tmp2, idx, screen, car, start_time);
+                if (!no_crash1 | !no_crash2) break;
+                Console.Clear();
+                score++;
+                // if either of no_exit1&2 is true (car still in screen), stay in do-while loop
+                // if crash, quit entire game
+            } while (no_exit1 | no_exit2);
+            if (!no_crash1 | !no_crash2) break;
+        }
+        Console.WriteLine("\nFinal Score: {0}", score);
+    }
+
+
+    static void Info()
+    {
+        Console.WriteLine("\n\n   ********************");
+        Console.WriteLine("   * Rush Hour Maniac *");
+        Console.WriteLine("   ********************");
+        Thread.Sleep(1250);
+        Console.Clear();
+        Console.WriteLine("\n** Welcome to Rush Hour Manic **\n  ");
+        Console.WriteLine("You're in a hurry, but you're now");
+        Console.WriteLine("driving at rush hour on a jammed");
+        Console.WriteLine("highway. Maneuver your vehicle and");
+        Console.WriteLine("AVOID CRASHING YOUR CAR!!!\n");
+        Console.WriteLine("Press [A] to steer LEFT.");
+        Console.WriteLine("Press [D] to steer RIGHT.");
+        Console.WriteLine("\nPress [Enter] to begin game.");
+        Console.ReadLine();
+        Console.Clear();
+    }
+
+    static void SetUp(ref char[,] screen, ref char[] car)
+    {
+        /*
+        Traffic car size: Small 3x4 / Large 5x7
+        *** Large Vehicle is not yet implemented ***
+
+        */
+        int y = -1;
+        int x = -1;
+        const int width = 33; // 1+9+9+9+1
+        const int height = 12;
+
+        /* Generate Lane Line:
+         *
+         * .|....(6)....|....(16)....|....(26)....|.
+         * .|           |            |            |.
+         * .|           |            |            |.
+         * .|           |            |            |.
+         * .|....(6)....|....(16)....|....(26)....|.
+         */
+        for (y = 0; y < height; y++)
+        {
+            for (x = 0; x < width; x++)
+            {
+
+                if (x == 1 | x == 11 | x == 21 | x == 31) { screen[y, x] = '|'; }
+                else { screen[y, x] = ' '; }
+            }
+        }
+        // Generate Car Position ( ^^^^^ )
+        for (x = 0; x < width; x++)
+        {
+            car[x] = ' ';
+        }
+    }
+
+
+    static void PlayerControl(out int dir, ref int idx)
+    {
+        // Press any key in the next 150ms. Otherwise, input is ignored
+        ConsoleKeyInfo k = new ConsoleKeyInfo();
+        for (int cnt = 3; cnt > 0; cnt--)
+        {
+            if (Console.KeyAvailable)
+            {
+                k = Console.ReadKey();
+                break;
+            }
             else
             {
-                flag = false;
+                System.Threading.Thread.Sleep(50);
             }
-            return flag;
         }
-        static void State(ref int count, ref TargetState state)
+        switch (k.Key.ToString())
         {
-            // State() changes the target's mental state
-            
-            if (count>=4) {state=TargetState.Aggressive;}
-            else if (count>=2) {state=TargetState.Moderate;}
-            else if (count>=0) {state=TargetState.Calm;}
+            case "A": dir = 1; break;
+            case "D": dir = 2; break;
+            default: dir = 0; break;
         }
-        static void Damage(ref int health,double dist,TargetState state,bool precision)
-        {
-            /* 
-            Max bullet damage=20
+    }
 
-            Target's immunity to bullet damage:
-            Aggressive: >30m damage=0
-            Moderate: >300m damage=0
-            Calm: @500m damage=9
-            */ 
-            int damage=0;
-            if (state==TargetState.Moderate) {damage = (int)(20*(Math.Exp(-dist/100)));}
-            else if (state==TargetState.Aggressive) {damage = (int)(20*(Math.Exp(-dist/10)));}
-            else if (state==TargetState.Calm) {damage = (int)(20*(Math.Exp(-dist/700)));}
-            
-            // precision damage bonus (+50%)
-            if (precision){
-              damage=(int)(damage*1.5);
-              Console.WriteLine("[Precision bonus (+50%)] ");
-            }
-            health -= damage;
-            Console.WriteLine("Damage: {0}, Health Remaining: {1}",damage,health);
-        }
-        static bool Move(TargetState state)
+
+    static void PlayerMovement(ref char[] car, int dir, ref int idx)
+    {
+        int[] x_pos = { 6, 16, 26 };
+        int pos = x_pos[idx];
+
+        // Erase Old car Position
+        car[pos - 2] = ' ';
+        car[pos - 1] = ' ';
+        car[pos] = ' ';
+        car[pos + 1] = ' ';
+        car[pos + 2] = ' ';
+        switch (dir)
         {
-            // Move(): Target moves.
-            // Movement probability is related to State()
-            
-            bool movement = false;
-            switch (state)
-            {
-                case TargetState.Aggressive :
-                // Aggressive: 70% movement
-                int[] array = new int[70];
-                Random rand = new Random();
-                for(int i=0;i<70;i++)
+            case 1:
                 {
-                    array[i] = rand.Next(1,101);
-                    
-                    for(int j=0;j<i;j++)
-                    {
-                    while (array[i]==array[j]){
-                        array[i]=rand.Next(1,101);
-                    }
-                    }
+                    if (idx >= 1) { pos = x_pos[idx - 1]; idx -= 1; }
+                    else { pos = x_pos[idx]; }
+                    break; // move LEFT
                 }
-                int key = rand.Next(1,101);
-                if(array.Contains(key))
+            case 2:
                 {
-                    movement = true;
+                    if (idx <= 1) { pos = x_pos[idx + 1]; idx += 1; }
+                    else { pos = x_pos[idx]; }
+                    break; // move RIGHT
                 }
-                break;
-                case TargetState.Moderate :
-                // Moderate: 50% movement
-                rand = new Random();
-                array = new int[50];
-                for(int i=0;i<50;i++)
+            case 0:
                 {
-                    array[i] = rand.Next(1,101);
-                    
-                    for(int j=0;j<i;j++)
-                    {
-                    while (array[i]==array[j]){
-                        array[i]=rand.Next(1,101);
-                    }
-                    }
+                    pos = x_pos[idx + 0];
+                    idx += 0;
+                    break; // NO move
                 }
-                key = rand.Next(1,101);
-                if(array.Contains(key))
-                {
-                    movement = true;
-                }
-                break;
-                case TargetState.Calm:
-                // Calm: 10% movement
-                rand = new Random();
-                array = new int[10];
-                for(int i=0;i<10;i++)
-                {
-                    array[i] = rand.Next(1,101);
-                    
-                    for(int j=0;j<i;j++)
-                    {
-                    while (array[i]==array[j]){
-                        array[i]=rand.Next(1,101);
-                    }
-                    }
-                }
-                key = rand.Next(1,101);
-                if(array.Contains(key))
-                {
-                    movement = true;
-                }
-                break;
         }
-        return movement;
-      }
-    }   
+        // car move to new location (car[pos])
+        car[pos - 2] = '^';
+        car[pos - 1] = '^';
+        car[pos    ] = '^';
+        car[pos + 1] = '^';
+        car[pos + 2] = '^';
+    }
+
+
+    static void TrafficGenerator(char[,] screen, out int x, out int y)
+    {
+        int[] traffic_xpos = { 6, 16, 26 };
+        int[] traffic_ypos = { -15, -10, -5, 0 };
+        Random rand = new Random();
+
+        // randomly generate (x,y) coordinate of oncoming traffic
+        x = traffic_xpos[rand.Next() % 3];
+        y = traffic_ypos[rand.Next() % 4];
+    }
+
+
+    static void TrafficMove(char[,] screen, int x, int y, ref int t, out bool exit)
+    {
+        int i = -1;
+        int j = -1;
+        y += t;
+        exit = true;
+        // small vehicle
+        for (i = y - 2; i <= y + 1; i++)
+        {
+            // if vehicle not yet enter, no action.
+            // if vehicle exit, no action
+            if (i < 0 | i > 11) break;
+            // if vehicle in screen >> display()
+            for (j = x - 1; j <= x + 1; j++)
+            {
+                screen[i, j] = '*'; // (y,x)
+            }
+        }
+        for (i = 0; i < 12; i++)
+        {
+            if (i >= y - 2 & i <= y + 1) break;
+            // erase vehicle prev position
+            for (j = x - 1; j <= x + 1; j++)
+            {
+                screen[i, j] = ' '; // (y,x)
+            }
+        }
+        if (i == 12) exit = false;
+    }
+
+
+    static bool CrashCheck(int x, int y, int car_idx, char[,] screen, char[] car, DateTime start_time)
+    {
+        // if continue_game == false, game terminates
+        bool continue_game = true;
+        int[] x_pos = { 6, 16, 26 };
+        int car_pos = x_pos[car_idx];
+        if (x == car_pos & (y >= 10 & y <= 13))
+        {
+            int game_time = TimeElapsed(start_time);
+
+            continue_game = false;
+            Thread.Sleep(3000);
+            Console.Clear();
+            Console.WriteLine("\n\n       *************");
+            Console.WriteLine("       * CAR CRASH *");
+            Console.WriteLine("       *************");
+            Console.WriteLine("\n  You survived on the highway");
+            Console.WriteLine("for {0} seconds.", game_time);
+        }
+        return continue_game;
+    }
+
+
+    static void Display(char[,] screen, char[] car, int score)
+    {
+        // Display screen (traffic)
+        for (int y = 0; y < 12; y++)
+        {
+            for (int x = 0; x < 33; x++)
+            {
+                Console.Write(screen[y, x]);
+            }
+            Console.WriteLine("");
+        }
+        Console.WriteLine("");
+
+        // Display car (player)
+        for (int x = 0; x < 33; x++)
+        {
+            Console.Write(car[x]);
+        }
+        Console.WriteLine("\nScore: {0}", score);
+
+    }
+
+
+    static bool Probability(int percent)
+    {
+        bool prob = true;
+        return prob;
+    }
+
+
+    static int TimeElapsed(DateTime start_time)
+    {
+        int t1 = TimeParse(start_time);
+        int t2 = TimeParse(DateTime.Now);
+        return t2 - t1;
+    }
+
+
+    static int TimeParse(DateTime time)
+    {
+        int h = int.Parse(time.ToString("HH"));
+        h *= 3600000;
+        int m = int.Parse(time.ToString("mm"));
+        m *= 60000;
+        int s = int.Parse(time.ToString("ss"));
+        s *= 1000;
+        int f = int.Parse(time.ToString("fff"));
+        int t = h + m + s + f;
+        t /= 1000;
+        return t;
+    }
 }

@@ -12,9 +12,14 @@ using GameBundle;
  *     |    [22] Connect Four
  *     |    [23] Reversi
  *     |    [24] Sniper
- *     | [3] View Leaderboard
+ *     | [3] View Personal Scores
+ *     | [4] View Leaderboard
+ *     |    [41] Rush Hour Maniac Leaderboard
+ *     |    [42] Connect Four Leaderboard
+ *     |    [43] Reversi Leaderboard
+ *     |    [44] Sniper Leaderboard
  *     
- * 2a   If user has chosen "[2] Play Games" or "[3] View Leaderboard",
+ * 2a   If user has chosen "[2] Play Games", "[3] View Personal Scores" or "[4] View Leaderboard",
  *    this application first authenticates the user's identity. ( Authentication() )
  *      If user is authenticated, user is granted access. ( GameLaunch() )
  *    Otherwise, user has to re-enter his/her username and password.

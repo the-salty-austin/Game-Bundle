@@ -21,7 +21,6 @@ namespace GameBundle
             // print out game info and instructions
             Info();
 
-            // record time when game starts
             DateTime start_time = DateTime.Now;
 
             while (true)
@@ -91,6 +90,7 @@ namespace GameBundle
                     int tmp1 = y1 + t;
                     int tmp2 = y2 + t;
                     int tmp3 = y3 + t;
+                    
                     // [ Step 6 ]
                     /*
                      * Checks whether player with crashed into any vehicle.
